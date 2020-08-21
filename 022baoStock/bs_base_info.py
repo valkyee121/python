@@ -47,7 +47,8 @@ def industry():
     sys.logout("End")
 
 #       start_date='2015-01-01', end_date='2017-12-31',
-def history_data(paras=None,start=None, end=None):
+def history_data(table = None,paras=None,start=None, end=None):
+    codes = query(paras, table)
     sys.login("Start")
 
     #### 获取沪深A股估值指标(日频)数据 ####
@@ -55,12 +56,19 @@ def history_data(paras=None,start=None, end=None):
     # psTTM    滚动市销率
     # pcfNcfTTM    滚动市现率
     # pbMRQ    市净率
-    codes = query(paras)
-    result_list = []
+
+    # for c in codes:
+    #     print(c)
+    param_list = list(map(lambda x: (x.get("code"), start, end), codes))
+    print(param_list)
+    # result_list = []
     start_time = datetime.datetime.now()
     print("loading...")
     # for code in codes:
-    result_list = list(starmap(processing(), codes,start,end))
+    # print(param_list)
+    #
+    # starmap(lambda x, y, z: test(x, y, z), param_list)
+    result_list = starmap(processing, param_list)
     print(result_list)
     end_time = datetime.datetime.now()
     print("数据清洗耗时：", end_time - start_time)  # 测试Mysql的排序时间
@@ -102,20 +110,22 @@ def growth(code, year=None, season=None):
 
     sys.logout("End")
 
-def query(industry = None):
+def query(industry = None, table = None):
     filter = {"_id":0,"code":1}
     start = datetime.datetime.now()
-    col = db.link_start(k_data_info)
+    col = db.link_start(table)
     results = db.rows_select(col,params=industry,filter=filter)
     end = datetime.datetime.now()
     print("耗时：", end - start)  # 测试Mysql的排序时间
+
     return results
     # for result in results:
     #     print(result.get("code"))
+def test(code, start, end):
+    print(code)
 
 def processing(code, start, end):
-    print(code,start,end)
-    rs_k = bs.query_history_k_data_plus(code.get("code"),
+    rs_k = bs.query_history_k_data_plus(code,
                                         "date,code,close,peTTM,pbMRQ,psTTM,pcfNcfTTM",
                                         start_date=start, end_date=end,
                                         frequency="d", adjustflag="3")
@@ -123,9 +133,9 @@ def processing(code, start, end):
     ori_season = 0
     rs_k.fields.append("peg")
     YOYEPSBasic = 0
+    callback = []
     while (rs_k.error_code == '0') & rs_k.next():
         k_data = rs_k.get_row_data()
-
         year = k_data[0].split("-")[0]
         month = k_data[0].split("-")[1]
         pe = 0.0
@@ -135,9 +145,7 @@ def processing(code, start, end):
 
         if ori_season != act_season:
             ori_season = act_season
-            rs_growth = bs.query_growth_data(code=code.get("code"), year=year, quarter=4)
-            # if (rs_growth.error_code == '0') & rs_growth.next():
-            #     YOYEPSBasic = map(lambda x : float(rs_growth.get_row_data()[2]), rs_growth)
+            rs_growth = bs.query_growth_data(code=code, year=year, quarter=4)
             if (rs_growth.error_code == '0') & rs_growth.next():
                 g_data = rs_growth.get_row_data()
                 YOYEPSBasic = g_data[-2]
@@ -150,16 +158,18 @@ def processing(code, start, end):
         else:
             peg = 0.0
             k_data.append(peg)
-        print(sys.listToJson(k_data, rs_k.fields))
-        # result_list.append(sys.listToJson(k_data, rs_k.fields))
-        return sys.listToJson(k_data, rs_k.fields)
+        # print(sys.listToJson(k_data, rs_k.fields))
+        callback.append(sys.listToJson(k_data, rs_k.fields))
+        # return sys.listToJson(k_data, rs_k.fields)
+    return callback
 if __name__ == '__main__':
+    paras = {"industry":"食品饮料"}
     # industry()
-    results =  query()
-    # print(results)
-    for result in results:
-        print(result)
-    # paras = {"industry":"食品饮料"}
-    # history_data(paras=paras,start="2000-01-01",end="2020-08-19")
+    # results =  query(paras, id_info)
+    # print(result_list)
+    # for result in results:
+    #     print(result)
+    # paras = {"industry" : "食品饮料"}
+    history_data(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20")
     # growth("sh.600000",2007,4)
     # forcast_report()
