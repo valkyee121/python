@@ -1,6 +1,8 @@
 from sys_pack import sys, bs
 from sys_db_connector import db_connector as db
-
+from queue import Queue as queue
+from concurrent.futures import ThreadPoolExecutor
+import time
 def test1():
     mylist = [{"code" : "SZ00002", "name" : "RFYY"}]
     myDb = db.link_start("base_info")
@@ -42,5 +44,32 @@ def test4():
     #     print(k_data)
 
     sys.logout("end")
+
+def test5(q):
+    # 生产者
+    for i in range(0, 10):
+        q.put(i)
+        print("放入%d" % i)
+
+    # 消费者
+    for j in range(0, 10):
+        res = q.get(j)
+        print("取出%d" % res)
+        # 由消费者调用，每一个get()得到一个任务后，由task_done()通知队列此任务已经处理完成
+        q.task_done()
+    # 阻塞等待
+    q.join()
+def spider(page):
+    time.sleep(page)
+    return page
+def main_thread_executor():
+    with ThreadPoolExecutor(max_workers=3) as t:
+        i = 1
+        for result in t.map(spider,[1,2,3,4,5]):
+            print("task{}:{}".format(i, result))
+            i += 1
+def test6():
+    str = ('sh.600059', '2000-01-01', '2020-08-20'),
+    print(type(str))
 if __name__ == '__main__':
-    test4()
+    test6()

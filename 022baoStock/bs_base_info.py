@@ -2,7 +2,9 @@ from sys_pack import sys , bs, pd, np
 from sys_db_connector import db_connector as db
 import datetime
 from itertools import starmap
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+import akshare as ak
 
 base_info = "base_info"
 id_info = "industrys_info"
@@ -48,7 +50,7 @@ def industry():
 
 #       start_date='2015-01-01', end_date='2017-12-31',
 def history_data(table = None,paras=None,start=None, end=None):
-    codes = query(paras, table)
+
     sys.login("Start")
 
     #### 获取沪深A股估值指标(日频)数据 ####
@@ -56,29 +58,66 @@ def history_data(table = None,paras=None,start=None, end=None):
     # psTTM    滚动市销率
     # pcfNcfTTM    滚动市现率
     # pbMRQ    市净率
+    codes = query(paras, table)
 
     # for c in codes:
     #     print(c)
-    param_list = list(map(lambda x: (x.get("code"), start, end), codes))
-    print(param_list)
+    # param_list = list(map(lambda x: (x.get("code"), start, end), codes))
+    # param_list = list(map(lambda x: x.get("code"), codes))
+    # print(param_list)
     # result_list = []
     start_time = datetime.datetime.now()
     print("loading...")
-    # for code in codes:
-    # print(param_list)
+    # with ThreadPoolExecutor(max_workers=6) as executor:
     #
-    # starmap(lambda x, y, z: test(x, y, z), param_list)
-    result_list = starmap(processing, param_list)
-    print(result_list)
+    #     all_list = [executor.submit(test, code.get("code"), start, end) for code in codes]
+    #     result = []
+    #
+    #     for future in as_completed(all_list):
+    #         res = future.result()
+    #         result.append(res)
+    #     print(result)
+    result = []
+    for code in codes:
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            all_list = [executor.submit(processing, code.get("code"), start, end, code.get("code"))]
+
+            for future in as_completed(all_list):
+                res = future.result()
+                result.append(res)
+                print("任务{} down load success".format(res[0]))
+
     end_time = datetime.datetime.now()
-    print("数据清洗耗时：", end_time - start_time)  # 测试Mysql的排序时间
+    print("1数据清洗耗时：", end_time - start_time)  # 测试时间
+
     sys.logout("End")
 
     # start_db = datetime.datetime.now()
     # kdcol = db.link_start(k_data_info)
     # db.rows_insert(kdcol, result_list)
     # end_db = datetime.datetime.now()
-    # print("持久化耗时：", end_db - start_db)  # 测试Mysql的排序时间
+    # print("持久化耗时：", end_db - start_db)  # 测试时间
+
+
+def history_data_2(table = None,paras=None,start=None, end=None):
+
+    sys.login("Start")
+
+    #### 获取沪深A股估值指标(日频)数据 ####
+    # peTTM    滚动市盈率
+    # psTTM    滚动市销率
+    # pcfNcfTTM    滚动市现率
+    # pbMRQ    市净率
+    codes = query(paras, table)
+    start_time = datetime.datetime.now()
+    print("loading...")
+    result2 = []
+    for code in codes:
+        callback = test(code.get("code"), start, end)
+        result2.append(callback)
+    end_time = datetime.datetime.now()
+    print("2数据清洗耗时：", end_time - start_time)  # 测试时间
+    sys.logout("End")
 def forcast_report():
     sys.login("Start")
 
@@ -102,12 +141,12 @@ def growth(code, year=None, season=None):
     growth_list = []
     rs_growth = bs.query_growth_data(code=code, year=year, quarter=season)
     while (rs_growth.error_code == '0') & rs_growth.next():
-        # growth_list.append()
+        growth_list.append(rs_growth.get_row_data())
         print(rs_growth.get_row_data())
         # return rs_growth.get_row_data()[5]
     # result_growth = pd.DataFrame(growth_list, columns=rs_growth.fields)
     # 打印输出
-
+    return growth_list
     sys.logout("End")
 
 def query(industry = None, table = None):
@@ -121,47 +160,66 @@ def query(industry = None, table = None):
     return results
     # for result in results:
     #     print(result.get("code"))
-def test(code, start, end):
-    print(code)
-
-def processing(code, start, end):
+def test(code, start, end, index):
+    print("code {} finished at {}".format(index, time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())))
+    callback = []
     rs_k = bs.query_history_k_data_plus(code,
                                         "date,code,close,peTTM,pbMRQ,psTTM,pcfNcfTTM",
                                         start_date=start, end_date=end,
                                         frequency="d", adjustflag="3")
-
-    ori_season = 0
-    rs_k.fields.append("peg")
-    YOYEPSBasic = 0
-    callback = []
     while (rs_k.error_code == '0') & rs_k.next():
         k_data = rs_k.get_row_data()
-        year = k_data[0].split("-")[0]
-        month = k_data[0].split("-")[1]
-        pe = 0.0
-        if len(k_data[3]) != 0:
-            pe = float(k_data[3])
-        act_season = season[month]
 
-        if ori_season != act_season:
-            ori_season = act_season
-            rs_growth = bs.query_growth_data(code=code, year=year, quarter=4)
-            if (rs_growth.error_code == '0') & rs_growth.next():
-                g_data = rs_growth.get_row_data()
-                YOYEPSBasic = g_data[-2]
-                YOYEPSBasic = float(YOYEPSBasic)
-
-        peg = 0.0
-        if YOYEPSBasic != 0:
-            peg = pe / (YOYEPSBasic * 100.0)
-            k_data.append(peg)
-        else:
-            peg = 0.0
-            k_data.append(peg)
-        # print(sys.listToJson(k_data, rs_k.fields))
-        callback.append(sys.listToJson(k_data, rs_k.fields))
-        # return sys.listToJson(k_data, rs_k.fields)
+        callback.append(sys.listToJson(k_data, rs_k.fields));
     return callback
+
+
+def processing(code, start, end, index):
+    # code = params[0]
+    # start = params[1]
+    # end = params[2]
+    try:
+        rs_k = bs.query_history_k_data_plus(code,
+                                            "date,code,close,peTTM,pbMRQ,psTTM,pcfNcfTTM",
+                                            start_date=start, end_date=end,
+                                            frequency="d", adjustflag="3")
+
+        ori_season = 0
+        rs_k.fields.append("peg")
+        YOYEPSBasic = 0
+        callback = []
+        while (rs_k.error_code == '0') & rs_k.next():
+            k_data = rs_k.get_row_data()
+            year = k_data[0].split("-")[0]
+            month = k_data[0].split("-")[1]
+            pe = 0.0
+            if len(k_data[3]) != 0:
+                pe = float(k_data[3])
+            act_season = season[month]
+
+            if ori_season != act_season:
+                ori_season = act_season
+                rs_growth = bs.query_growth_data(code=code, year=year, quarter=4)
+                if (rs_growth.error_code == '0') & rs_growth.next():
+                    g_data = rs_growth.get_row_data()
+                    YOYEPSBasic = g_data[-2]
+                    YOYEPSBasic = float(YOYEPSBasic)
+
+            peg = 0.0
+            if YOYEPSBasic != 0:
+                peg = pe / (YOYEPSBasic * 100.0)
+                k_data.append(peg)
+            else:
+                peg = 0.0
+                k_data.append(peg)
+            # print(sys.listToJson(k_data, rs_k.fields))
+            callback.append(sys.listToJson(k_data, rs_k.fields))
+            # return sys.listToJson(k_data, rs_k.fields)
+        return callback
+    except Exception as e:
+        print(e.message)
+        return None
+
 if __name__ == '__main__':
     paras = {"industry":"食品饮料"}
     # industry()
@@ -171,5 +229,6 @@ if __name__ == '__main__':
     #     print(result)
     # paras = {"industry" : "食品饮料"}
     history_data(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20")
+    # history_data_2(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20")
     # growth("sh.600000",2007,4)
     # forcast_report()
