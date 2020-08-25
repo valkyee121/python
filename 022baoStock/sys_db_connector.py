@@ -24,6 +24,5 @@ class db_connector:
         # print(x.inserted_ids)
 
     def rows_select(collection, params=None, filter=None):
-        print(params)
         return collection.find(params, filter)
 

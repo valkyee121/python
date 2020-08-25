@@ -1,7 +1,6 @@
 from sys_pack import sys , bs, pd, np
 from sys_db_connector import db_connector as db
 import datetime
-from itertools import starmap
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import akshare as ak
