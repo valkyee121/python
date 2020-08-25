@@ -9,6 +9,14 @@ import akshare as ak
 base_info = "base_info"
 id_info = "industrys_info"
 k_data_info = "k_data_info"
+k_data_medical = "k_data_medical"
+k_data_finance = "k_data_finance"
+k_data_outfits = "k_data_outfits"
+k_data_agriculture = "k_data_agriculture"
+k_data_electric = "k_data_electric"
+k_data_electronic = "k_data_electronic"
+k_data_automotive = "k_data_automotive"
+k_data_other = "k_data_other"
 season = {
     "01" : 1,
     "02" : 1,
@@ -99,7 +107,7 @@ def history_data(table = None,paras=None,start=None, end=None):
     # print("持久化耗时：", end_db - start_db)  # 测试时间
 
 
-def history_data_2(table = None,paras=None,start=None, end=None):
+def history_data_2(table=None,paras=None,start=None, end=None, target=None):
 
     sys.login("Start")
 
@@ -111,13 +119,54 @@ def history_data_2(table = None,paras=None,start=None, end=None):
     codes = query(paras, table)
     start_time = datetime.datetime.now()
     print("loading...")
-    result2 = []
-    for code in codes:
-        callback = test(code.get("code"), start, end)
-        result2.append(callback)
+    callback = []
+    try:
+        for code in codes:
+            rs_k = bs.query_history_k_data_plus(code.get("code"),
+                                                "date,code,close,peTTM,pbMRQ,psTTM,pcfNcfTTM",
+                                                start_date=start, end_date=end,
+                                                frequency="d", adjustflag="3")
+            ori_season = 0
+            rs_k.fields.append("peg")
+            YOYEPSBasic = 0
+            while (rs_k.error_code == '0') & rs_k.next():
+                k_data = rs_k.get_row_data()
+                year = k_data[0].split("-")[0]
+                month = k_data[0].split("-")[1]
+                pe = 0.0
+                if len(k_data[3]) != 0:
+                    pe = float(k_data[3])
+                act_season = season[month]
+
+                if ori_season != act_season:
+                    ori_season = act_season
+                    rs_growth = bs.query_growth_data(code=code.get("code"), year=year, quarter=4)
+                    if (rs_growth.error_code == '0') & rs_growth.next():
+                        g_data = rs_growth.get_row_data()
+                        YOYEPSBasic = g_data[-2]
+                        YOYEPSBasic = float(YOYEPSBasic)
+
+                peg = 0.0
+                if YOYEPSBasic != 0:
+                    peg = pe / (YOYEPSBasic * 100.0)
+                    k_data.append(peg)
+                else:
+                    peg = 0.0
+                    k_data.append(peg)
+                callback.append(sys.listToJson(k_data, rs_k.fields))
+    except Exception as e:
+        print(e.message)
+        return None
     end_time = datetime.datetime.now()
     print("2数据清洗耗时：", end_time - start_time)  # 测试时间
     sys.logout("End")
+
+    # print(callback)
+    start_db = datetime.datetime.now()
+    kdcol = db.link_start(target)
+    db.rows_insert(kdcol, callback)
+    end_db = datetime.datetime.now()
+    print("持久化耗时：", end_db - start_db)  # 测试时间
 def forcast_report():
     sys.login("Start")
 
@@ -221,14 +270,14 @@ def processing(code, start, end, index):
         return None
 
 if __name__ == '__main__':
-    paras = {"industry":"食品饮料"}
+    paras = {"industry":"汽车"}
     # industry()
     # results =  query(paras, id_info)
     # print(result_list)
     # for result in results:
     #     print(result)
     # paras = {"industry" : "食品饮料"}
-    history_data(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20")
-    # history_data_2(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20")
+    # history_data(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20")
+    history_data_2(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20", target=k_data_automotive)
     # growth("sh.600000",2007,4)
     # forcast_report()

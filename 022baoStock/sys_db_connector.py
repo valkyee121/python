@@ -21,7 +21,7 @@ class db_connector:
 
     def rows_insert(collection, rows):
         x = collection.insert_many(rows)
-        print(x.inserted_ids)
+        # print(x.inserted_ids)
 
     def rows_select(collection, params=None, filter=None):
         print(params)
