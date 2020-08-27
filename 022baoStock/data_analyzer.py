@@ -76,8 +76,18 @@ def drawing(data=None):
     #              line_width=[2, 1, 1],  # 可同时设置 → line_width = 2
     #              )
     for col, color in zip(ti.columns.tolist(), Spectral4):
-        p.line(ti.index, ti[col], line_width=2, color=color, alpha=0.8, legend=col,
-               muted_color=color, muted_alpha=0.2)  # 设置消隐后的显示颜色、透明度 可以设置muted_color = 'black'
+
+        if col == 'close':
+            p.patch(ti.index, ti[col],  # 设置x，y值
+                    line_width=1, line_alpha=0.8, line_color=color, line_dash=[100, 4],  # 线型基本设置
+                    fill_color='black', fill_alpha=0.2 , legend=col,
+                    )
+            # 绘制面积图
+            # .patch将会把所有点连接成一个闭合面
+        else:
+            p.line(ti.index, ti[col], line_width=2, color=color, alpha=0.8, legend=col,
+                   muted_color=color, muted_alpha=0.2)  # 设置消隐后的显示颜色、透明度 可以设置muted_color = 'black'
+
 
     # output_notebook()
     p.xaxis.formatter = DatetimeTickFormatter(

@@ -161,11 +161,11 @@ def history_data_2(table=None,paras=None,start=None, end=None, target=None):
     sys.logout("End")
 
     # print(callback)
-    start_db = datetime.datetime.now()
-    kdcol = db.link_start(target)
-    db.rows_insert(kdcol, callback)
-    end_db = datetime.datetime.now()
-    print("持久化耗时：", end_db - start_db)  # 测试时间
+    # start_db = datetime.datetime.now()
+    # kdcol = db.link_start(target)
+    # db.rows_insert(kdcol, callback)
+    # end_db = datetime.datetime.now()
+    # print("持久化耗时：", end_db - start_db)  # 测试时间
 def forcast_report():
     sys.login("Start")
 
@@ -268,7 +268,7 @@ def processing(code, start, end, index):
         print(e.message)
         return None
 
-if __name__ == '__main__':
+if __name__=='__main__':
     paras = {"industry":"汽车"}
     # industry()
     # results =  query(paras, id_info)
