@@ -1,4 +1,4 @@
-from sys_pack import sys, bs
+from sys_pack import sys, bs, np
 from sys_db_connector import db_connector as db
 from queue import Queue as queue
 from concurrent.futures import ThreadPoolExecutor
@@ -73,3 +73,4 @@ def test6():
     print(type(str))
 if __name__ == '__main__':
     test6()
+    np.random.randn()
