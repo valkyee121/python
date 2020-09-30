@@ -16,6 +16,7 @@ k_data_electric = "k_data_electric"
 k_data_electronic = "k_data_electronic"
 k_data_automotive = "k_data_automotive"
 k_data_other = "k_data_other"
+k_data_foods = "k_data_foods"
 season = {
     "01" : 1,
     "02" : 1,
@@ -126,8 +127,16 @@ def history_data_2(table=None,paras=None,start=None, end=None, target=None):
                                                 start_date=start, end_date=end,
                                                 frequency="d", adjustflag="3")
             ori_season = 0
-            rs_k.fields.append("peg")
+            col_list = ['YOYEquity', 'YOYAsset','YOYNI','YOYEPSBasic','YOYPNI',
+                        'dupontROE','dupontAssetStoEquity','dupontAssetTurn','dupontPnitoni',
+                        'dupontNitogr','dupontTaxBurden','dupontIntburden','dupontEbittogr',
+                        'roeAvg','npMargin','gpMargin','netProfit','epsTTM','MBRevenue','peg']
+            # rs_k.fields.append("peg")
+            rs_k.fields.extend(col_list)
             YOYEPSBasic = 0
+            growth_list = []
+            dupont_list = []
+            profit_list = []
             while (rs_k.error_code == '0') & rs_k.next():
                 k_data = rs_k.get_row_data()
                 year = k_data[0].split("-")[0]
@@ -137,21 +146,43 @@ def history_data_2(table=None,paras=None,start=None, end=None, target=None):
                     pe = float(k_data[3])
                 act_season = season[month]
 
+
+
                 if ori_season != act_season:
                     ori_season = act_season
-                    rs_growth = bs.query_growth_data(code=code.get("code"), year=year, quarter=4)
+                    rs_growth = bs.query_growth_data(code=code.get("code"), year=year, quarter=act_season)
                     if (rs_growth.error_code == '0') & rs_growth.next():
                         g_data = rs_growth.get_row_data()
                         YOYEPSBasic = g_data[-2]
-                        YOYEPSBasic = float(YOYEPSBasic)
-
+                        if YOYEPSBasic.isspace() or YOYEPSBasic == "":
+                            YOYEPSBasic = 0.0
+                        else:
+                            YOYEPSBasic = np.float(YOYEPSBasic)
+                        # k_data.extend([g_data[3],g_data[4],g_data[5],g_data[6],g_data[7]])
+                        growth_list = ([g_data[3],g_data[4],g_data[5],g_data[6],g_data[7]])
+                    rs_dupont = bs.query_dupont_data(code=code.get("code"), year=year, quarter=act_season)
+                    if (rs_dupont.error_code == '0') & rs_dupont.next():
+                        g_data = rs_dupont.get_row_data()
+                        # k_data.extend([g_data[3], g_data[4], g_data[5], g_data[6], g_data[7], g_data[8],
+                        #                g_data[9], g_data[10]])
+                        dupont_list = [g_data[3], g_data[4], g_data[5], g_data[6], g_data[7], g_data[8],
+                                       g_data[9], g_data[10]]
+                    rs_profit= bs.query_profit_data(code=code.get("code"), year=year, quarter=act_season)
+                    if (rs_profit.error_code == '0') & rs_profit.next():
+                        g_data = rs_profit.get_row_data()
+                        # k_data.extend([g_data[3], g_data[4], g_data[5], g_data[6], g_data[7], g_data[8]])
+                        profit_list = [g_data[3], g_data[4], g_data[5], g_data[6], g_data[7], g_data[8]]
+                k_data.extend(growth_list)
+                k_data.extend(dupont_list)
+                k_data.extend(profit_list)
                 peg = 0.0
-                if YOYEPSBasic != 0:
+                if YOYEPSBasic != 0.0:
                     peg = pe / (YOYEPSBasic * 100.0)
                     k_data.append(peg)
                 else:
                     peg = 0.0
                     k_data.append(peg)
+
                 callback.append(sys.listToJson(k_data, rs_k.fields))
     except Exception as e:
         print(e.message)
@@ -161,11 +192,11 @@ def history_data_2(table=None,paras=None,start=None, end=None, target=None):
     sys.logout("End")
 
     # print(callback)
-    # start_db = datetime.datetime.now()
-    # kdcol = db.link_start(target)
-    # db.rows_insert(kdcol, callback)
-    # end_db = datetime.datetime.now()
-    # print("持久化耗时：", end_db - start_db)  # 测试时间
+    start_db = datetime.datetime.now()
+    kdcol = db.link_start(target)
+    db.rows_insert(kdcol, callback)
+    end_db = datetime.datetime.now()
+    print("持久化耗时：", end_db - start_db)  # 测试时间
 def forcast_report():
     sys.login("Start")
 
@@ -269,7 +300,7 @@ def processing(code, start, end, index):
         return None
 
 if __name__=='__main__':
-    paras = {"industry":"汽车"}
+    paras = {"industry":"食品饮料"}
     # industry()
     # results =  query(paras, id_info)
     # print(result_list)
@@ -277,6 +308,6 @@ if __name__=='__main__':
     #     print(result)
     # paras = {"industry" : "食品饮料"}
     # history_data(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20")
-    history_data_2(table=id_info,paras=paras,start="2000-01-01",end="2020-08-20", target=k_data_automotive)
+    history_data_2(table=id_info,paras=paras,start="2000-01-01",end="2020-09-29", target=k_data_foods)
     # growth("sh.600000",2007,4)
     # forcast_report()

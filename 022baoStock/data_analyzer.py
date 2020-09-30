@@ -8,8 +8,12 @@ from bokeh.plotting import figure, output_file, show
 from bokeh.io import output_notebook
 from bokeh.models import ColumnDataSource, DatetimeTickFormatter,HoverTool
 from bokeh.palettes import Spectral4
+from matplotlib import pyplot as plt
+import seaborn as sns
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+pd.set_option('display.max_columns',1000)
+pd.set_option('display.width', 1000)
+pd.set_option('display.max_colwidth',1000)
 
 base_info = "base_info"
 id_info = "industrys_info"
@@ -22,6 +26,7 @@ k_data_electric = "k_data_electric"
 k_data_electronic = "k_data_electronic"
 k_data_automotive = "k_data_automotive"
 k_data_other = "k_data_other"
+k_data_foods = "k_data_foods"
 
 def query(code = None, table = None):
     filter = {"_id": 0}
@@ -39,8 +44,6 @@ def mem_usage(pandas_obj):
     return "{:03.2f} MB".format(usage_mb)
 
 def drawing(data=None):
-
-
     df = pd.DataFrame(list(data))
 
 
@@ -104,6 +107,24 @@ def drawing(data=None):
 
 
 if __name__ == '__main__':
-    paras = {"code": "sh.600066"}
-    callback_list = query(code=paras,table=k_data_automotive)
-    drawing(callback_list)
+    paras = {"code": "sh.600132"}
+    callback_list = query(code=paras,table=k_data_foods)
+    df = pd.DataFrame(list(callback_list))
+    df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+    df['code'] = df['code'].astype('category')
+
+    df_obj = df.select_dtypes(include=['object','float64'])
+    convert_obj = df_obj.apply(pd.to_numeric, downcast='float')
+    df[convert_obj.columns] = convert_obj
+
+    df['peg'] = df['peg'].astype(np.float32)
+    print(df.describe())
+    elements = ['close','YOYEquity','dupontAssetStoEquity',
+                'dupontNitogr','dupontEbittogr','npMargin','epsTTM']
+    df1 = df.loc[:,elements]
+    df1.plot()
+
+
+    # f,ax = plt.subplots(figsize=(24,24))
+    # sns.heatmap(df.corr(), annot=True, linewidths=.5, fmt='.2f', ax=ax)
+    plt.show()

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as op
 import torch.utils.data as Data
 
+
 LR = 0.01
 BATCH_SIZE = 16
 EPOCH = 24
